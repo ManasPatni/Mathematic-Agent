@@ -1,0 +1,9 @@
+streamlit
+sympy
+chromadb
+sentence-transformers
+langchain
+langchain_huggingface
+langchain_groq
+PyYAML
+tiktoken
