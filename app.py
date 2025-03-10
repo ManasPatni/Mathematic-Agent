@@ -12,14 +12,21 @@ import chromadb
 embedding_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 chat = ChatGroq(temperature=0.7, model_name="llama3-70b-8192", groq_api_key="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")
 memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
-chroma_client = chromadb.PersistentClient(path="./math_chroma_db")
+
+# ✅ Updated ChromaDB initialization
+chroma_client = chromadb.PersistentClient(path="./math_chroma_db")  # For ChromaDB < 0.4.24
+# chroma_client = chromadb.Client()  # If using latest ChromaDB (>=0.4.24)
+
 collection = chroma_client.get_or_create_collection(name="math_knowledge_base")
 
 # Function to retrieve context
 def retrieve_context(query, top_k=2):
-    query_embedding = embedding_model.embed_query(query)
-    results = collection.query(query_embeddings=[query_embedding], n_results=top_k)
-    return results.get("documents", [[]])
+    try:
+        query_embedding = embedding_model.embed_query(query)
+        results = collection.query(query_embeddings=[query_embedding], n_results=top_k)
+        return results.get("documents", [[]])
+    except Exception as e:
+        return f"⚠ Error retrieving context: {e}"
 
 # Function to solve mathematical problems
 def solve_math_problem(problem):
@@ -30,7 +37,7 @@ def solve_math_problem(problem):
         formatted_solutions = [latex(simplify(sol)) for sol in solutions]
         return formatted_solutions
     except Exception as e:
-        return f"Error: {e}"
+        return [f"⚠ Error: {e}"]
 
 # Function to handle queries to the math assistant
 def query_math_assistant(user_query):
@@ -84,9 +91,12 @@ if user_query:
     if "=" in user_query:
         try:
             solutions = solve_math_problem(user_query)
-            st.markdown(f"*Solutions:* {', '.join(solutions)}")
+            if solutions:
+                st.markdown(f"*Solutions:* {', '.join(solutions)}")
+            else:
+                st.warning("No solutions found.")
         except Exception as e:
-            st.error(f"Error solving the equation: {e}")
+            st.error(f"⚠ Error solving the equation: {e}")
     else:
         response = query_math_assistant(user_query)
         st.markdown(f"*Response:* {response}")
