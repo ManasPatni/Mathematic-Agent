@@ -1,6 +1,6 @@
 streamlit
 sympy
-chromadb>=0.4.24  # Ensure it's a recent version
+chromadb
 sentence-transformers
 langchain
 langchain_huggingface
