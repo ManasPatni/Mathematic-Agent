@@ -1,53 +1,51 @@
+_import_('pysqlite3')
 import sys
-import sqlite3
-from sympy import symbols, Eq, solve, simplify, latex
+sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
+import chromadb
+import streamlit as st
+import sys
+import os
+import numpy as np
+from PyPDF2 import PdfReader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_groq import ChatGroq
 from langchain.schema import HumanMessage, SystemMessage
 from langchain.memory import ConversationBufferMemory
-from sentence_transformers import SentenceTransformer
-import streamlit as st
+from sentence_transformers import SentenceTransformer, util
+from sympy import symbols, Eq, solve, simplify, latex
 
-# ✅ Check SQLite version before importing ChromaDB
-required_sqlite_version = (3, 35, 0)  # Minimum required: 3.35.0
-current_sqlite_version = tuple(map(int, sqlite3.sqlite_version.split(".")))
-
-if current_sqlite_version < required_sqlite_version:
-    st.error(f"⚠ SQLite version too old: {sqlite3.sqlite_version}. Please upgrade to 3.35.0 or later.")
-    sys.exit(1)
-
-import chromadb  # Now import ChromaDB after ensuring SQLite is updated
-
-# ✅ Initialize models and database
+# Initialize models and database
 embedding_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+semantic_model = SentenceTransformer('all-MiniLM-L6-v2')
 chat = ChatGroq(temperature=0.7, model_name="llama3-70b-8192", groq_api_key="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")
 memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
-# ✅ Updated ChromaDB initialization
-chroma_client = chromadb.PersistentClient(path="./math_chroma_db")  # Use PersistentClient for better stability
+# ChromaDB initialization
+chroma_client = chromadb.PersistentClient(path="./math_chroma_db")
 collection = chroma_client.get_or_create_collection(name="math_knowledge_base")
 
-# ✅ Function to retrieve context
-def retrieve_context(query, top_k=2):
-    try:
-        query_embedding = embedding_model.embed_query(query)
-        results = collection.query(query_embeddings=[query_embedding], n_results=top_k)
-        return results.get("documents", [[]])
-    except Exception as e:
-        return f"⚠ Error retrieving context: {e}"
+# Step 1: Retrieve Context
 
-# ✅ Function to solve mathematical problems
+def retrieve_context(query, top_k=2):
+    query_embedding = embedding_model.embed_query(query)
+    results = collection.query(query_embeddings=[query_embedding], n_results=top_k)
+    return results.get("documents", [[]])
+
+# Step 2: Solve Mathematical Problems
+
 def solve_math_problem(problem):
     try:
         x = symbols('x')
-        equation = Eq(eval(problem.replace('^2', '**2').replace('^3', '**3')), 0)
+        equation = Eq(eval(problem.replace('^2', '*2').replace('^3', '*3')), 0)
         solutions = solve(equation, x)
         formatted_solutions = [latex(simplify(sol)) for sol in solutions]
         return formatted_solutions
     except Exception as e:
-        return [f"⚠ Error: {e}"]
+        return f"Error: {e}"
 
-# ✅ Function to handle queries to the math assistant
+# Step 3: Chat Handling
+
 def query_math_assistant(user_query):
     system_prompt = """
     You are an advanced mathematics assistant, designed to solve problems of any complexity across all mathematical domains, including:
@@ -75,21 +73,21 @@ def query_math_assistant(user_query):
     # Retrieve context
     retrieved_context = retrieve_context(user_query)
 
-    # Combine prompt and user query
+    # Combine prompt
     messages = [
         SystemMessage(content=system_prompt),
         HumanMessage(content=f"📖 Context: {retrieved_context}\n\n📝 Problem: {user_query}")
     ]
 
     try:
-        # Generate response from the chat assistant
+        # Generate response
         response = chat.invoke(messages)
         memory.save_context({"input": user_query}, {"output": response.content})
         return response.content if response else "⚠ No response received."
     except Exception as e:
         return f"⚠ Error: {str(e)}"
 
-# ✅ Streamlit user interface
+# User Interface
 st.title("Advanced Mathematics Assistant")
 st.header("Mathematical Problem Solver")
 
@@ -98,13 +96,11 @@ user_query = st.text_input("📝 Enter a mathematical problem or equation:")
 if user_query:
     if "=" in user_query:
         try:
-            solutions = solve_math_problem(user_query)
-            if solutions:
-                st.markdown(f"*Solutions:* {', '.join(solutions)}")
-            else:
-                st.warning("No solutions found.")
+            equation = user_query.replace("=", "-").replace("^2", "*2").replace("^3", "*3")
+            solutions = solve_math_problem(user_query.replace("=", "==").replace("^2", "*2").replace("^3", "*3"))
+            st.markdown(f"*Solutions:* {', '.join(solutions)}")
         except Exception as e:
-            st.error(f"⚠ Error solving the equation: {e}")
+            st.error(f"Error solving the equation: {e}")
     else:
         response = query_math_assistant(user_query)
         st.markdown(f"*Response:* {response}")
