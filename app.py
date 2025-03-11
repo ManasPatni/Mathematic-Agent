@@ -1,4 +1,5 @@
 import sys
+import sqlite3
 from sympy import symbols, Eq, solve, simplify, latex
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_groq import ChatGroq
@@ -6,20 +7,27 @@ from langchain.schema import HumanMessage, SystemMessage
 from langchain.memory import ConversationBufferMemory
 from sentence_transformers import SentenceTransformer
 import streamlit as st
-import chromadb
 
-# Initialize models and database
+# ✅ Check SQLite version before importing ChromaDB
+required_sqlite_version = (3, 35, 0)  # Minimum required: 3.35.0
+current_sqlite_version = tuple(map(int, sqlite3.sqlite_version.split(".")))
+
+if current_sqlite_version < required_sqlite_version:
+    st.error(f"⚠ SQLite version too old: {sqlite3.sqlite_version}. Please upgrade to 3.35.0 or later.")
+    sys.exit(1)
+
+import chromadb  # Now import ChromaDB after ensuring SQLite is updated
+
+# ✅ Initialize models and database
 embedding_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 chat = ChatGroq(temperature=0.7, model_name="llama3-70b-8192", groq_api_key="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")
 memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
 # ✅ Updated ChromaDB initialization
-chroma_client = chromadb.PersistentClient(path="./math_chroma_db")  # For ChromaDB < 0.4.24
-# chroma_client = chromadb.Client()  # If using latest ChromaDB (>=0.4.24)
-
+chroma_client = chromadb.PersistentClient(path="./math_chroma_db")  # Use PersistentClient for better stability
 collection = chroma_client.get_or_create_collection(name="math_knowledge_base")
 
-# Function to retrieve context
+# ✅ Function to retrieve context
 def retrieve_context(query, top_k=2):
     try:
         query_embedding = embedding_model.embed_query(query)
@@ -28,7 +36,7 @@ def retrieve_context(query, top_k=2):
     except Exception as e:
         return f"⚠ Error retrieving context: {e}"
 
-# Function to solve mathematical problems
+# ✅ Function to solve mathematical problems
 def solve_math_problem(problem):
     try:
         x = symbols('x')
@@ -39,11 +47,11 @@ def solve_math_problem(problem):
     except Exception as e:
         return [f"⚠ Error: {e}"]
 
-# Function to handle queries to the math assistant
+# ✅ Function to handle queries to the math assistant
 def query_math_assistant(user_query):
     system_prompt = """
     You are an advanced mathematics assistant, designed to solve problems of any complexity across all mathematical domains, including:
-    
+
     1. Algebra: Solve equations, inequalities, and systems of equations.
     2. Calculus: Perform differentiation, integration, limits, and analyze functions.
     3. Linear Algebra: Handle matrices, vector spaces, eigenvalues, and eigenvectors.
@@ -51,12 +59,12 @@ def query_math_assistant(user_query):
     5. Probability and Statistics: Solve problems involving distributions, probability theory, and statistical analysis.
     6. Discrete Mathematics: Tackle combinatorics, graph theory, and logic.
     7. Advanced Topics: Work on differential equations, complex numbers, Fourier transforms, and more.
-    
+
     Responsibilities:
     - Provide accurate step-by-step solutions to problems of any difficulty level.
     - Explain mathematical concepts clearly, concisely, and with precision.
     - Ensure results are accurate and formatted cleanly using LaTeX when applicable.
-    
+
     Guidelines:
     - Always verify the correctness of solutions before presenting them.
     - Offer alternative approaches or methods when applicable.
@@ -81,7 +89,7 @@ def query_math_assistant(user_query):
     except Exception as e:
         return f"⚠ Error: {str(e)}"
 
-# Streamlit user interface
+# ✅ Streamlit user interface
 st.title("Advanced Mathematics Assistant")
 st.header("Mathematical Problem Solver")
 
