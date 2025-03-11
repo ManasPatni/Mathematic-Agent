@@ -7,3 +7,4 @@ langchain_huggingface
 langchain_groq
 PyYAML
 tiktoken
+pysqlite3-binary 
