@@ -1,11 +1,8 @@
 streamlit
-sympy
 chromadb
-sentence-transformers
 langchain
-langchain_huggingface
-langchain_groq
-PyYAML
-tiktoken
-pysqlite3-binary 
-sqlite3 >= 3.35.0
+langchain-huggingface
+langchain-groq
+sentence-transformers
+PyPDF2
+pysqlite3-binary
