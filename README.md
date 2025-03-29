@@ -33,7 +33,7 @@ Once the application is running, open your web browser and go to `https://mathem
 -Semantic Search: Retrieves context from a mathematical knowledge base.
 -Interactive UI: Built with Streamlit for a seamless user experience.
 
-##Youtube Video
+## Youtube
 1.Youtube Link: `https://youtu.be/EVHC9SDVg_A`
 
 
