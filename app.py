@@ -24,15 +24,13 @@ memory = ConversationBufferMemory(memory_key="chat_history", return_messages=Tru
 chroma_client = chromadb.PersistentClient(path="./math_chroma_db")
 collection = chroma_client.get_or_create_collection(name="math_knowledge_base")
 
-# Step 1: Retrieve Context
-
+# Retrieve Context
 def retrieve_context(query, top_k=2):
     query_embedding = embedding_model.embed_query(query)
     results = collection.query(query_embeddings=[query_embedding], n_results=top_k)
     return results.get("documents", [[]])
 
-# Step 2: Solve Mathematical Problems
-
+# Solve Mathematical Problems
 def solve_math_problem(problem):
     try:
         x = symbols('x')
@@ -43,43 +41,17 @@ def solve_math_problem(problem):
     except Exception as e:
         return f"Error: {e}"
 
-# Step 3: Chat Handling
-
+# Chat Handling
 def query_math_assistant(user_query):
     system_prompt = """
-    You are an advanced mathematics assistant, designed to solve problems of any complexity across all mathematical domains, including:
-
-    1. Algebra: Solve equations, inequalities, and systems of equations.
-    2. Calculus: Perform differentiation, integration, limits, and analyze functions.
-    3. Linear Algebra: Handle matrices, vector spaces, eigenvalues, and eigenvectors.
-    4. Geometry: Analyze shapes, compute areas, volumes, and handle coordinate geometry.
-    5. Probability and Statistics: Solve problems involving distributions, probability theory, and statistical analysis.
-    6. Discrete Mathematics: Tackle combinatorics, graph theory, and logic.
-    7. Advanced Topics: Work on differential equations, complex numbers, Fourier transforms, and more.
-
-    Responsibilities:
-    - Provide accurate step-by-step solutions to problems of any difficulty level.
-    - Explain mathematical concepts clearly, concisely, and with precision.
-    - Ensure results are accurate and formatted cleanly using LaTeX when applicable.
-
-    Guidelines:
-    - Always verify the correctness of solutions before presenting them.
-    - Offer alternative approaches or methods when applicable.
-    - Respond politely, professionally, and empathetically to all user queries.
-    - Avoid unnecessary details and focus on addressing the query directly.
+    You are an advanced mathematics assistant, designed to solve problems of any complexity across all mathematical domains.
     """
-
-    # Retrieve context
     retrieved_context = retrieve_context(user_query)
-
-    # Combine prompt
     messages = [
         SystemMessage(content=system_prompt),
         HumanMessage(content=f"📖 Context: {retrieved_context}\n\n📝 Problem: {user_query}")
     ]
-
     try:
-        # Generate response
         response = chat.invoke(messages)
         memory.save_context({"input": user_query}, {"output": response.content})
         return response.content if response else "⚠ No response received."
@@ -87,19 +59,33 @@ def query_math_assistant(user_query):
         return f"⚠ Error: {str(e)}"
 
 # User Interface
-st.title("Advanced Mathematics Assistant")
-st.header("Mathematical Problem Solver")
+st.set_page_config(layout="wide")
+st.title("Advanced Mathematics Chatbot 🤖")
 
-user_query = st.text_input("📝 Enter a mathematical problem or equation:")
+st.markdown("### 💬 Chat with the Math Assistant")
 
-if user_query:
-    if "=" in user_query:
-        try:
-            equation = user_query.replace("=", "-").replace("^2", "*2").replace("^3", "*3")
-            solutions = solve_math_problem(user_query.replace("=", "==").replace("^2", "*2").replace("^3", "*3"))
-            st.markdown(f"*Solutions:* {', '.join(solutions)}")
-        except Exception as e:
-            st.error(f"Error solving the equation: {e}")
-    else:
-        response = query_math_assistant(user_query)
-        st.markdown(f"*Response:* {response}")
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+
+user_query = st.text_input("📝 Type your question here:")
+if st.button("Ask"):  
+    if user_query:
+        if "=" in user_query:
+            try:
+                equation = user_query.replace("=", "-").replace("^2", "*2").replace("^3", "*3")
+                solutions = solve_math_problem(user_query.replace("=", "==").replace("^2", "*2").replace("^3", "*3"))
+                response = f"*Solutions:* {', '.join(solutions)}"
+            except Exception as e:
+                response = f"Error solving the equation: {e}"
+        else:
+            response = query_math_assistant(user_query)
+        
+        st.session_state.chat_history.append((user_query, response))
+
+st.markdown("---")
+st.markdown("### 📝 Chat History")
+for user_q, bot_response in st.session_state.chat_history[::-1]:
+    with st.chat_message("user"):
+        st.write(f"**User:** {user_q}")
+    with st.chat_message("assistant"):
+        st.write(f"**Bot:** {bot_response}")
