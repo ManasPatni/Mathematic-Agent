@@ -6,3 +6,4 @@ langchain-groq
 sentence-transformers
 PyPDF2
 pysqlite3-binary
+torch
